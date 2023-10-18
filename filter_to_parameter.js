@@ -5,6 +5,15 @@
 
   const PARAMETER_ALL_VALUE = "All"
   const CONFIGURE_PATH = `/tab_ext/config.html`;
+  const INSTANCE_ID = Math.floor((Math.random() * 10000))
+
+  if (window.console && console.log) {
+    var old = console.log;
+    console.log = function () {
+      Array.prototype.unshift.call(arguments, INSTANCE_ID + ': ');
+      old.apply(this, arguments)
+    }
+  }
 
   /**
    * stops the filter changed handler from being called multiple times
