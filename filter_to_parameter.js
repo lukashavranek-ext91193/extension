@@ -10,7 +10,7 @@
    * stops the filter changed handler from being called multiple times
    * @type {boolean}
    */
-  let resettingFilters = false; // todo maybe removing this could change something
+  let changeIsHandled = false; // todo maybe removing this could change something
 
   /**
    * Utility function that returns the saved configuration of extension
@@ -72,10 +72,12 @@
    */
   async function filterChangedHandler(filterEvent) {
     // return if filter resetting is already in progress
-    if (resettingFilters) {
+    if (changeIsHandled) {
       console.log("Event ignore because filters are being reset - " + filterEvent.fieldName)
       return
     }
+    changeIsHandled = true;
+    console.log("HANDLE EVENT STARTED")
     try {
       // find parameter this filter is supposed to change
       console.log("finding pair for " + filterEvent.fieldName)
@@ -89,6 +91,9 @@
       }
     } catch (e) {
       console.error(e)
+    } finally {
+      console.log("HANDLE EVENT ENDED")
+      changeIsHandled = false;
     }
   }
 
@@ -146,28 +151,26 @@
    */
   async function resetFilters(resetFrom) {
     console.log("resetting filters and parameters from index " + resetFrom)
-    resettingFilters = true;
     const filterParamPairs = getFilterParamPairs();
     try {
       const parameterPromises = [];
+      let filterClearPromises = []
       // To get filter info, first get the dashboard.
       const dashboard = tableau.extensions.dashboardContent.dashboard; // todo maybe not dashboard
 
       for (let i = resetFrom; i < filterParamPairs.length; i++) {
-        parameterPromises.push(dashboard.findParameterAsync(filterParamPairs[i].param))
-      }
+        // reset promise
+        let promise = dashboard.findParameterAsync(filterParamPairs[i].param).then((p) => {
+          console.log("reseting parameter " + p.name + " to ALL value:");
+          console.log(p);
+          // Reset parameter
+          return p.changeValueAsync(PARAMETER_ALL_VALUE).catch(_ => console.error(`Parameter ${p.name}, (id: ${p.id}) cannot be reset to value ${PARAMETER_ALL_VALUE}`))
+        }).catch(e => console.error(e));
 
-      let returnedParams = await Promise.all(parameterPromises);
-      let filterClearPromises = []
-      for (let i = 0; i < returnedParams.length; i++) {
-        console.log("reseting parameter " + returnedParams[i].name + " to ALL value:");
-        console.log(returnedParams[i]);
-        // Reset parameter
-        returnedParams[i].changeValueAsync(PARAMETER_ALL_VALUE)
-          .catch(_ => console.error(`Parameter ${returnedParams[i].name}, (id: ${returnedParams[i].id}) cannot be reset to value ${PARAMETER_ALL_VALUE}`))
+        parameterPromises.push(promise)
 
-        // Reset filters in every worksheet
-        let filterName = filterParamPairs[i + resetFrom].filter
+        // reset filter
+        let filterName = filterParamPairs[i].filter
         // todo this might be causing the issue - it would be better to know which worksheet the filter is in and only search that one.
         for (let j = 0; j < dashboard.worksheets.length; j++) {
           console.log("clearing filter " + filterName)
@@ -186,11 +189,9 @@
         }
       }
       await Promise.all(filterClearPromises);
+      await Promise.all(parameterPromises);
     } catch (e) {
       console.error(e)
-    } finally {
-      console.log("filters no longer being reset")
-      resettingFilters = false;
     }
     console.log("filter reset end")
   }
