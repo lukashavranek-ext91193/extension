@@ -4,7 +4,7 @@
 (function () {
 
   const PARAMETER_ALL_VALUE = "All"
-  const CONFIGURE_PATH = `/tab_ext/config.html`;
+  const CONFIGURE_PATH = `/billigence-extension/config.html`;
   const INSTANCE_ID = Math.floor((Math.random() * 10000))
 
   if (window.console && console.log) {
